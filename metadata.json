@@ -1,0 +1,7 @@
+{
+  "name": "Minimalist AI Creative Feed",
+  "description": "A sleek, minimalist social feed where you can upload images and prompts. Integrated with Gemini to provide AI-enhanced insights for every post.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
