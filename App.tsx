@@ -9,7 +9,7 @@ import PromptCard from './components/PromptCard';
 import MakeTab from './components/MakeTab';
 import UpdateTab from './components/UpdateTab';
 import PromptForm from './components/PromptForm';
-import { splitIntoSentences, categorizeSentence } from './utils/promptUtils';
+import { splitIntoSentences, categorizeSentence, normalizeCategory } from './utils/promptUtils';
 
 type Tab = 'archive' | 'prompt' | 'make' | 'update';
 type SortType = '최신순' | '인기순';
@@ -141,7 +141,7 @@ const App: React.FC = () => {
         id: `${post.id}-${s.text.substring(0, 15)}`,
         originalPost: post,
         text: s.text,
-        category: s.category,
+        category: normalizeCategory(s.category),
         count: copyCounts[s.text] || 0,
         timestamp: post.timestamp
       }));

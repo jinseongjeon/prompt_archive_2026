@@ -1,5 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
+import { normalizeCategory } from '../utils/promptUtils';
 
 const getAIClient = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -51,7 +52,7 @@ export const analyzeStyleRequirement = async (
       Analyze the user's creative vision and reference images.
       Based on this, decide how many prompt example sentences (total 50) from the archive should be provided for each category to best guide the AI in creating THIS specific style.
       
-      CATEGORIES: '주제', '의상', '화면 구성', '원본 유지', '규칙 선언 (부정)', '카메라 구도', '조명', '이미지 스타일', '재질', '색감&톤', '감정', '포즈'.
+      CATEGORIES: '주제', '의상', '화면구성', '원본 유지', '규칙 선언(부정)', '카메라 구도', '조명', '이미지 스타일', '재질', '색감 & 톤', '감정', '포즈'.
       
       RULES:
       1. Distribute exactly 50 points (weights) across the categories.
@@ -186,7 +187,10 @@ export const generateAIInsight = async (prompt: string, imagesBase64: string[]):
       return {
         insight: result.insight || "AI insight unavailable.",
         originality: result.originality || "None identified",
-        sentences: result.sentences || []
+        sentences: (result.sentences || []).map((s: any) => ({
+          ...s,
+          category: normalizeCategory(s.category)
+        }))
       };
     } catch (error) {
       console.error("Gemini Content Generation Error:", error);
@@ -230,7 +234,7 @@ export const generateCustomPrompt = async (
       2. For each relevant category, create a primary 'text' and 3 'alternatives'.
       3. Mimic the distinct technical style of the ARCHIVE context.
       
-      CATEGORIZATION (Korean): '주제', '의상', '화면 구성', '원본 유지', '규칙 선언 (부정)', '카메라 구도', '조명', '이미지 스타일', '재질', '색감&톤', '감정', '포즈'.
+      CATEGORIZATION (Korean): '주제', '의상', '화면구성', '원본 유지', '규칙 선언(부정)', '카메라 구도', '조명', '이미지 스타일', '재질', '색감 & 톤', '감정', '포즈'.
     `;
 
     const promptParts: any[] = [{ text: `${systemInstruction}` }];

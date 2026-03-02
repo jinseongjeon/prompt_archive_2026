@@ -32,6 +32,26 @@ export const CATEGORIES = [
     '포즈'
 ];
 
+/**
+ * AI가 반환하는 카테고리 이름을 표준 CATEGORIES 목록의 이름으로 정규화합니다.
+ * 공백, 특수문자(&, 괄호 주변 공백) 차이를 무시하고 매칭합니다.
+ */
+export const normalizeCategory = (category: string): string => {
+    if (!category) return '주제';
+
+    // 공백 제거 + & 통일 + 소문자 비교용 정규화
+    const normalize = (s: string) =>
+        s.replace(/\s+/g, '')
+            .replace(/&amp;/g, '&')
+            .replace(/＆/g, '&')
+            .toLowerCase();
+
+    const normalizedInput = normalize(category);
+
+    const match = CATEGORIES.find(c => normalize(c) === normalizedInput);
+    return match || category;
+};
+
 export const detectDomain = (text: string): 'UI' | 'GENERAL' => {
     if (!text) return 'GENERAL';
     const lower = text.toLowerCase();
