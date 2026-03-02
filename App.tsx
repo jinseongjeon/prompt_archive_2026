@@ -137,8 +137,8 @@ const App: React.FC = () => {
       const sentences: CategorizedSentence[] = post.categorizedSentences ||
         splitIntoSentences(post.prompt).map(s => ({ text: s, category: post.isAIPending ? '분석 중' : categorizeSentence(s, undefined, post.prompt) }));
 
-      return sentences.map(s => ({
-        id: `${post.id}-${s.text.substring(0, 15)}`,
+      return sentences.map((s, idx) => ({
+        id: `${post.id}-s${idx}`,
         originalPost: post,
         text: s.text,
         category: normalizeCategory(s.category),
