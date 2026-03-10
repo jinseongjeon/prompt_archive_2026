@@ -44,6 +44,10 @@ const MakeTab: React.FC<MakeTabProps> = ({ archivePosts }) => {
   // Additional request state
   const [additionalRequest, setAdditionalRequest] = useState('');
   const [isAddingByRequest, setIsAddingByRequest] = useState(false);
+  const [inputMode, setInputMode] = useState<'gemini' | 'direct'>('gemini');
+  const [directCategory, setDirectCategory] = useState(CATEGORIES[0]);
+  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
+  const categoryMenuRef = useRef<HTMLDivElement>(null);
 
   // Drag and drop images state
   const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
@@ -300,6 +304,17 @@ const MakeTab: React.FC<MakeTabProps> = ({ archivePosts }) => {
       setIsAddingByRequest(false);
       setGenerationStep('');
     }
+  };
+
+  const handleDirectAdd = () => {
+    if (!additionalRequest.trim()) return;
+    const newSentence: MakeSentence = {
+      text: additionalRequest.trim(),
+      category: directCategory,
+      alternatives: []
+    };
+    setResultSentences(prev => [...prev, newSentence]);
+    setAdditionalRequest('');
   };
 
   const copyAllPrompt = async () => {
@@ -609,9 +624,65 @@ const MakeTab: React.FC<MakeTabProps> = ({ archivePosts }) => {
                   <p className="text-[10px] text-neutral-600 font-medium italic">Click each sentence to explore adjusted alternatives, drag to reorder, or add new patterns.</p>
                 </div>
 
-                {/* Gemini Additional Request Input */}
+                {/* Additional Input Section */}
                 <div className="pt-8 border-t border-neutral-900/50 mt-4">
-                  <label className="block text-[10px] font-semibold text-neutral-600 uppercase mb-4 px-2">Ask Gemini to add more</label>
+                  {/* Mode Toggle */}
+                  <div className="flex items-center gap-2 mb-4 px-2">
+                    <button
+                      onClick={() => { setInputMode('gemini'); setAdditionalRequest(''); }}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-semibold uppercase transition-all ${inputMode === 'gemini'
+                          ? 'bg-white text-black'
+                          : 'bg-neutral-900 text-neutral-500 hover:text-white hover:bg-neutral-800'
+                        }`}
+                    >
+                      ✨ Gemini 요청
+                    </button>
+                    <button
+                      onClick={() => { setInputMode('direct'); setAdditionalRequest(''); }}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-semibold uppercase transition-all ${inputMode === 'direct'
+                          ? 'bg-white text-black'
+                          : 'bg-neutral-900 text-neutral-500 hover:text-white hover:bg-neutral-800'
+                        }`}
+                    >
+                      ✏️ 직접 타이핑
+                    </button>
+                  </div>
+
+                  {/* Direct mode: category selector */}
+                  {inputMode === 'direct' && (
+                    <div className="flex items-center gap-3 mb-3 px-2">
+                      <span className="text-[9px] font-semibold text-neutral-600 uppercase shrink-0">Category</span>
+                      <div className="relative" ref={categoryMenuRef}>
+                        <button
+                          onClick={() => setIsCategoryMenuOpen(!isCategoryMenuOpen)}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-900 text-[10px] font-semibold text-neutral-300 hover:bg-neutral-800 transition-all"
+                        >
+                          {directCategory}
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+                        {isCategoryMenuOpen && (
+                          <div className="absolute bottom-full mb-2 left-0 w-52 bg-[#0a0a0a] rounded-2xl border border-neutral-900 shadow-2xl p-3 z-20 animate-in slide-in-from-bottom-2 fade-in duration-200">
+                            <div className="max-h-[240px] overflow-y-auto scrollbar-hide space-y-0.5">
+                              {CATEGORIES.map(cat => (
+                                <button
+                                  key={cat}
+                                  onClick={() => { setDirectCategory(cat); setIsCategoryMenuOpen(false); }}
+                                  className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-semibold uppercase transition-all ${directCategory === cat
+                                      ? 'bg-white text-black'
+                                      : 'text-neutral-500 hover:text-white hover:bg-neutral-900'
+                                    }`}
+                                >
+                                  {cat}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Input area */}
                   <div className="flex gap-3 items-start">
                     <textarea
                       value={additionalRequest}
@@ -619,29 +690,36 @@ const MakeTab: React.FC<MakeTabProps> = ({ archivePosts }) => {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
-                          handleAdditionalRequest();
+                          inputMode === 'gemini' ? handleAdditionalRequest() : handleDirectAdd();
                         }
                       }}
-                      placeholder="추가하고 싶은 내용을 설명하세요... (예: 따뜻한 조명 효과 추가해줘)"
+                      placeholder={inputMode === 'gemini'
+                        ? '추가하고 싶은 내용을 설명하세요... (예: 따뜻한 조명 효과 추가해줘)'
+                        : '프롬프트 문장을 직접 입력하세요...'
+                      }
                       disabled={isAddingByRequest}
                       className="flex-1 bg-neutral-950 rounded-2xl p-5 text-sm text-white font-normal focus:outline-none focus:ring-1 focus:ring-neutral-700 min-h-[56px] max-h-[120px] resize-none border border-neutral-900 placeholder:text-neutral-700 disabled:opacity-50 transition-all"
                     />
                     <button
-                      onClick={handleAdditionalRequest}
-                      disabled={isAddingByRequest || !additionalRequest.trim()}
-                      className={`h-14 w-14 shrink-0 rounded-2xl flex items-center justify-center transition-all ${isAddingByRequest
+                      onClick={inputMode === 'gemini' ? handleAdditionalRequest : handleDirectAdd}
+                      disabled={(inputMode === 'gemini' && isAddingByRequest) || !additionalRequest.trim()}
+                      className={`h-14 w-14 shrink-0 rounded-2xl flex items-center justify-center transition-all ${inputMode === 'gemini' && isAddingByRequest
                           ? 'bg-neutral-900 text-neutral-700 cursor-not-allowed'
                           : additionalRequest.trim()
                             ? 'bg-white text-black hover:bg-neutral-200 hover:scale-105 active:scale-95'
                             : 'bg-neutral-900 text-neutral-700 cursor-not-allowed'
                         }`}
                     >
-                      {isAddingByRequest ? (
+                      {isAddingByRequest && inputMode === 'gemini' ? (
                         <div className="w-5 h-5 border-2 border-neutral-700 border-t-neutral-400 rounded-full animate-spin" />
-                      ) : (
+                      ) : inputMode === 'gemini' ? (
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                           <line x1="22" y1="2" x2="11" y2="13" />
                           <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 4v16m8-8H4" />
                         </svg>
                       )}
                     </button>
