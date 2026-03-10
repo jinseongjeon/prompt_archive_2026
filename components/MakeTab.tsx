@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Post, CategorizedSentence } from '../types';
-import { generateCustomPrompt, generateSingleCategorizedSentence, analyzeStyleRequirement } from '../services/gemini';
+import { generateCustomPrompt, generateSingleCategorizedSentence, analyzeStyleRequirement, generateSentenceFromUserRequest } from '../services/gemini';
 import { translateText } from '../services/translation';
 
 const CATEGORIES = [
@@ -40,6 +40,10 @@ const MakeTab: React.FC<MakeTabProps> = ({ archivePosts }) => {
   const [isDraggingImages, setIsDraggingImages] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [copiedIndividual, setCopiedIndividual] = useState<Record<string, boolean>>({});
+
+  // Additional request state
+  const [additionalRequest, setAdditionalRequest] = useState('');
+  const [isAddingByRequest, setIsAddingByRequest] = useState(false);
 
   // Drag and drop images state
   const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
@@ -269,6 +273,32 @@ const MakeTab: React.FC<MakeTabProps> = ({ archivePosts }) => {
     if (activeSentenceIndex === idx) setActiveSentenceIndex(null);
     else if (activeSentenceIndex !== null && activeSentenceIndex > idx) {
       setActiveSentenceIndex(activeSentenceIndex - 1);
+    }
+  };
+
+  const handleAdditionalRequest = async () => {
+    if (!additionalRequest.trim() || isAddingByRequest) return;
+    setIsAddingByRequest(true);
+    setGenerationStep('Processing your request...');
+    try {
+      const images = await Promise.all(selectedFiles.map(fileToBase64));
+      const intelligentContext = await createIntelligentContext(description, images);
+      const currentPromptContext = resultSentences.map(s => `[${s.category}] ${s.text}`).join('\n');
+      const newSentence = await generateSentenceFromUserRequest(
+        additionalRequest,
+        currentPromptContext,
+        description,
+        images,
+        intelligentContext
+      );
+      setResultSentences(prev => [...prev, newSentence as MakeSentence]);
+      setAdditionalRequest('');
+    } catch (err) {
+      console.error("Failed to add sentence from request:", err);
+      alert("Failed to generate sentence. Please try again.");
+    } finally {
+      setIsAddingByRequest(false);
+      setGenerationStep('');
     }
   };
 
@@ -577,6 +607,45 @@ const MakeTab: React.FC<MakeTabProps> = ({ archivePosts }) => {
                     )}
                   </div>
                   <p className="text-[10px] text-neutral-600 font-medium italic">Click each sentence to explore adjusted alternatives, drag to reorder, or add new patterns.</p>
+                </div>
+
+                {/* Gemini Additional Request Input */}
+                <div className="pt-8 border-t border-neutral-900/50 mt-4">
+                  <label className="block text-[10px] font-semibold text-neutral-600 uppercase mb-4 px-2">Ask Gemini to add more</label>
+                  <div className="flex gap-3 items-start">
+                    <textarea
+                      value={additionalRequest}
+                      onChange={(e) => setAdditionalRequest(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleAdditionalRequest();
+                        }
+                      }}
+                      placeholder="추가하고 싶은 내용을 설명하세요... (예: 따뜻한 조명 효과 추가해줘)"
+                      disabled={isAddingByRequest}
+                      className="flex-1 bg-neutral-950 rounded-2xl p-5 text-sm text-white font-normal focus:outline-none focus:ring-1 focus:ring-neutral-700 min-h-[56px] max-h-[120px] resize-none border border-neutral-900 placeholder:text-neutral-700 disabled:opacity-50 transition-all"
+                    />
+                    <button
+                      onClick={handleAdditionalRequest}
+                      disabled={isAddingByRequest || !additionalRequest.trim()}
+                      className={`h-14 w-14 shrink-0 rounded-2xl flex items-center justify-center transition-all ${isAddingByRequest
+                          ? 'bg-neutral-900 text-neutral-700 cursor-not-allowed'
+                          : additionalRequest.trim()
+                            ? 'bg-white text-black hover:bg-neutral-200 hover:scale-105 active:scale-95'
+                            : 'bg-neutral-900 text-neutral-700 cursor-not-allowed'
+                        }`}
+                    >
+                      {isAddingByRequest ? (
+                        <div className="w-5 h-5 border-2 border-neutral-700 border-t-neutral-400 rounded-full animate-spin" />
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="22" y1="2" x2="11" y2="13" />
+                          <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </section>

@@ -338,3 +338,72 @@ export const generateSingleCategorizedSentence = async (
     return JSON.parse(response.text || "{}");
   });
 };
+
+export const generateSentenceFromUserRequest = async (
+  userRequest: string,
+  currentPromptContext: string,
+  description: string,
+  imagesBase64: string[],
+  archiveContext: string
+): Promise<{ text: string, category: string, alternatives: string[] }> => {
+  return withRetry(async () => {
+    const ai = getAIClient();
+
+    const systemInstruction = `
+      You are a world-class prompt engineer. The user has already generated a structured image generation prompt and now wants to ADD a new sentence based on their free-text request.
+
+      CURRENT VISION: "${description}"
+      
+      CURRENT PROMPT (already generated):
+      ${currentPromptContext}
+
+      ARCHIVE STYLE GUIDE:
+      ${archiveContext}
+
+      USER'S REQUEST FOR ADDITIONAL SENTENCE:
+      "${userRequest}"
+
+      TASK:
+      1. Understand what the user wants to add to their prompt.
+      2. Generate ONE new prompt sentence that fulfills the user's request.
+      3. The sentence should match the style and tone of the existing prompt sentences.
+      4. Classify it into the most appropriate category.
+      5. Provide 3 alternatives.
+
+      CATEGORIES (Korean): '주제', '의상', '화면구성', '원본 유지', '규칙 선언(부정)', '카메라 구도', '조명', '이미지 스타일', '재질', '색감 & 톤', '감정', '포즈'.
+      
+      Output: One 'text', one 'category', and 3 'alternatives' in JSON.
+    `;
+
+    const promptParts: any[] = [{ text: systemInstruction }];
+
+    imagesBase64.forEach((base64) => {
+      const cleanBase64 = base64.split(',')[1] || base64;
+      promptParts.push({
+        inlineData: { mimeType: "image/jpeg", data: cleanBase64 },
+      });
+    });
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: { parts: promptParts },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            text: { type: Type.STRING },
+            category: { type: Type.STRING },
+            alternatives: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            }
+          },
+          required: ["text", "category", "alternatives"]
+        }
+      },
+    });
+
+    return JSON.parse(response.text || "{}");
+  });
+};
